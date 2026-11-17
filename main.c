@@ -3,6 +3,8 @@
 #include <stdbool.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/wait.h>
+#include <sys/types.h>
 
 #define MAX_LEN 1024
 
@@ -53,6 +55,11 @@ int cd(char *dir) {
   return (res);
 }
 
+int exec() {
+  return execl("/sbin/ls", "ls", "-la", (char*) NULL);
+
+}
+
 int main() {
   char input[MAX_LEN];
   tokens *t = init_tokens();
@@ -75,11 +82,28 @@ int main() {
       add_token(t, token);
     }
 
+    add_token(t, (char*) NULL);
+    
     if (strcmp(t->arr[0], "cd") == 0) {
       cd(t->arr[1]);
       continue;
     }
 
+    // START EXEC
+    pid_t pid = fork();
+    
+    if (pid == -1) {
+      perror("fork failed");
+      return EXIT_FAILURE;
+    } else if (pid == 0) {
+      exec();
+    } else {
+      int status;
+      waitpid(pid, &status, 0);
+    }
+
+    /////////////
+    
     t->ptr = 0;
   }
 }
