@@ -58,7 +58,11 @@ int cd(char *dir) {
   return (res);
 }
 
-int exec(tokens* x) {
+char *get_path_of_executable(char* application) {
+  return application;
+}
+
+int exec(tokens *x) {
   return execv("/sbin/ls", x->arr);
 }
 
@@ -103,6 +107,6 @@ int main() {
       waitpid(pid, &status, 0);
     }
     /////////////
-    
+    t->ptr=0;
   }
 }
