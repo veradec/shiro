@@ -98,14 +98,11 @@ int main() {
       perror("fork failed");
       return EXIT_FAILURE;
     } else if (pid == 0) {
-      /* printf("Hello World"); */
       exec(t);
     } else {
       waitpid(pid, &status, 0);
     }
-
     /////////////
     
-
   }
 }
