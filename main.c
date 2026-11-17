@@ -7,7 +7,7 @@
 #include <sys/types.h>
 
 #define MAX_LEN 1024
-
+int status;
 typedef struct {
   char** arr;
   size_t ptr;
@@ -16,6 +16,9 @@ typedef struct {
 
 tokens *init_tokens() {
   tokens *t = malloc(sizeof(tokens));
+  if (t == NULL) {
+    return NULL;
+  }
   t->size = 3;
   t->arr = malloc(sizeof(char *)*t->size);
   return t;
@@ -24,7 +27,7 @@ tokens *init_tokens() {
 void add_token(tokens* t, char* token) {
   if (t->ptr >= t->size) {
     t->size = t->size * 2;
-    realloc(t, t->size);
+    t->arr = realloc(t->arr, sizeof(t->arr) * (t->size));
   }
 
   t->arr[t->ptr] = token;
@@ -46,7 +49,7 @@ char *get_prompt() {
 
   // buf for prompt
   char *buf = malloc(sizeof(char) * 99);
-  sprintf(buf, "\n[%s@%s](%s)", username, hostname, path);
+  sprintf(buf, "\n[%s@%s](%s) {%d}", username, hostname, path, status);
   return buf;
 }
 
@@ -55,9 +58,8 @@ int cd(char *dir) {
   return (res);
 }
 
-int exec() {
-  return execl("/sbin/ls", "ls", "-la", (char*) NULL);
-
+int exec(tokens* x) {
+  return execv("/sbin/ls", x->arr);
 }
 
 int main() {
@@ -96,14 +98,14 @@ int main() {
       perror("fork failed");
       return EXIT_FAILURE;
     } else if (pid == 0) {
-      exec();
+      /* printf("Hello World"); */
+      exec(t);
     } else {
-      int status;
       waitpid(pid, &status, 0);
     }
 
     /////////////
     
-    t->ptr = 0;
+
   }
 }
