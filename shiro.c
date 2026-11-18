@@ -76,6 +76,7 @@ int exec(tokens *x) {
     printf("shiro: command not found: %s\n", x->arr[0]);
     return -1;
   }
+
   x->arr[x->ptr] = (char*) NULL;
   return execv(app_path, x->arr);
 }
@@ -141,6 +142,7 @@ int main() {
       
       // exec the command
       status = exec(t);
+      status = status % 256;
       //////////
       
     } else {
