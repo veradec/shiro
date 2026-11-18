@@ -9,40 +9,13 @@
 
 #define MAX_LEN 1024
 
-typedef struct {
-  char** arr;
-  size_t ptr;
-  size_t size;
-} tokens;
-
 int status;
 char *username;
 char* hostname;
 
 tokens *PATH;
 
-tokens *init_tokens() {
-  tokens *t = malloc(sizeof(tokens));
-  if (t == NULL) {
-    return NULL;
-  }
-  t->size = 3;
-  t->arr = malloc(sizeof(char *)*t->size);
-  return t;
-}
-
-void add_token(tokens* t, char* token) {
-  if (t->ptr >= t->size) {
-    t->size = t->size * 2;
-    t->arr = realloc(t->arr, sizeof(t->arr) * (t->size));
-  }
-
-  t->arr[t->ptr] = token;
-  t->ptr = t->ptr+1;
-}
-
 void load_info() {
-
   PATH = init_tokens();
   add_token(PATH, "/usr/bin");
   add_token(PATH, "/usr/sbin");
@@ -64,7 +37,7 @@ char *get_prompt() {
 
   // buf for prompt
   char *buf = malloc(sizeof(char) * 99);
-  sprintf(buf, "\n[%s@%s](%s) {%d}", username, hostname, path, status);
+  sprintf(buf, "[%s@%s](%s) {%d}", username, hostname, path, status);
   return buf;
 }
 
@@ -165,7 +138,6 @@ int main() {
     } else {
       waitpid(pid, &status, 0);
     }
-    /////////////
-    t->ptr=0;
+    reset_tokens(t);
   }
 }
