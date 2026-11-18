@@ -8,6 +8,7 @@
 
 #define MAX_LEN 1024
 int status;
+
 typedef struct {
   char** arr;
   size_t ptr;
