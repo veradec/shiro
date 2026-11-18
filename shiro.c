@@ -12,7 +12,6 @@
 int status;
 char *username;
 char* hostname;
-
 tokens *PATH;
 
 void load_info() {
@@ -45,7 +44,7 @@ int cd(char *dir) {
   dir = str_replace(dir, username);
   int res = chdir(dir);
   if (res != 0) {
-    printf("shiro: cd: %s doesn't exist", dir);
+    printf("shiro: cd: %s doesn't exist\n", dir);
   }
   return (res);
 }
@@ -74,15 +73,16 @@ void where(char *application) {
 int exec(tokens *x) {
   char *app_path = get_path_of_executable(x->arr[0]);
   if (!app_path) {
-    printf("shiro: command not found: %s", x->arr[0]);
+    printf("shiro: command not found: %s\n", x->arr[0]);
     return -1;
   }
+  x->arr[x->ptr] = (char*) NULL;
   return execv(app_path, x->arr);
 }
 
 int main() {
   char input[MAX_LEN];
-  tokens *t = init_tokens();
+  tokens *t;
   char* prompt = get_prompt();
   load_info();
 
@@ -94,26 +94,34 @@ int main() {
     if (strcmp(input, "exit") == 0) {
       return 0;
     }
+    
+    // Command
 
-    char *token = strtok(input, " ");
-    add_token(t, token);
+    /* if (check_pipe(input)) { */
+    /*    commands *c = split_line_by_pipe(input); */
+    /*    run_piped_commands(c, 0); */
+    /* } */
+    
+    ////////////////////////////////
 
-    while (token != NULL) {
-      token = strtok(NULL, " ");
-      add_token(t, token);
-    }
-
-    add_token(t, (char*) NULL);
+    
+    t = split_by_whitespace(input);
 
     if (strcmp(t->arr[0], "cd") == 0) {
-      cd(t->arr[1]);
+      if (t->ptr == 1) {
+        char *tmp = malloc(sizeof(username) + sizeof("/home/"));
+        sprintf(tmp, "/home/%s", username);
+        cd(tmp);
+      } else {
+	cd(t->arr[1]);
+      }
       continue;
     }
 
 
     if (strcmp(t->arr[0], "where") == 0) {
       if (strcmp(t->arr[1], "where") == 0) {
-	printf("shiro: where built-in command");
+	printf("shiro: where built-in command\n");
       } else {
 	where(t->arr[1]);
       }
@@ -138,6 +146,6 @@ int main() {
     } else {
       waitpid(pid, &status, 0);
     }
-    reset_tokens(t);
+    reset_arr(t);
   }
 }
