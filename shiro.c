@@ -5,15 +5,21 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <sys/types.h>
+#include "helper.h"
 
 #define MAX_LEN 1024
-int status;
 
 typedef struct {
   char** arr;
   size_t ptr;
   size_t size;
 } tokens;
+
+int status;
+char *username;
+char* hostname;
+
+tokens *PATH;
 
 tokens *init_tokens() {
   tokens *t = malloc(sizeof(tokens));
@@ -35,15 +41,23 @@ void add_token(tokens* t, char* token) {
   t->ptr = t->ptr+1;
 }
 
-char *get_prompt() {
+void load_info() {
+
+  PATH = init_tokens();
+  add_token(PATH, "/usr/bin");
+  add_token(PATH, "/usr/sbin");
+  add_token(PATH, "/usr/local/bin");
+
   // allocating for username  
-  char* username = malloc(sizeof(char) * 99);
+  username = malloc(sizeof(char) * 99);
   getlogin_r(username, sizeof(username));
   
   // allocating for hostname  
-  char* hostname = malloc(sizeof(char) * 99);
+  hostname = malloc(sizeof(char) * 99);
   gethostname(hostname, sizeof(hostname));
+}
 
+char *get_prompt() {
   // buf for cwd
   char path[MAX_LEN];
   getcwd(path, sizeof(path));
@@ -55,22 +69,49 @@ char *get_prompt() {
 }
 
 int cd(char *dir) {
+  dir = str_replace(dir, username);
   int res = chdir(dir);
+  if (res != 0) {
+    printf("shiro: cd: %s doesn't exist", dir);
+  }
   return (res);
 }
 
-char *get_path_of_executable(char* application) {
-  return application;
+char *get_path_of_executable(char *application) {
+  for (size_t i = 0; i < PATH->ptr; i++) {
+    char *fname = malloc(sizeof(PATH->arr[i]) + sizeof(application));
+    sprintf(fname, "%s/%s", PATH->arr[i], application);
+    if (access(fname, F_OK) == 0) {
+      return fname;
+    }
+  }
+  return NULL;
+}
+
+void where(char *application) {
+  for (size_t i = 0; i < PATH->ptr; i++) {
+    char *fname = malloc(sizeof(PATH->arr[i])  + sizeof(application));
+    sprintf(fname, "%s/%s", PATH->arr[i], application);
+    if (access(fname, F_OK) == 0) {
+      printf("%s\n", fname);
+    }
+  }
 }
 
 int exec(tokens *x) {
-  return execv("/sbin/ls", x->arr);
+  char *app_path = get_path_of_executable(x->arr[0]);
+  if (!app_path) {
+    printf("shiro: command not found: %s", x->arr[0]);
+    return -1;
+  }
+  return execv(app_path, x->arr);
 }
 
 int main() {
   char input[MAX_LEN];
   tokens *t = init_tokens();
   char* prompt = get_prompt();
+  load_info();
 
   while (1) {
     prompt = get_prompt();
@@ -90,11 +131,24 @@ int main() {
     }
 
     add_token(t, (char*) NULL);
-    
+
     if (strcmp(t->arr[0], "cd") == 0) {
       cd(t->arr[1]);
       continue;
     }
+
+
+    if (strcmp(t->arr[0], "where") == 0) {
+      if (strcmp(t->arr[1], "where") == 0) {
+	printf("shiro: where built-in command");
+      } else {
+	where(t->arr[1]);
+      }
+
+      continue;
+    }
+
+    
 
     // START EXEC
     pid_t pid = fork();
@@ -103,7 +157,11 @@ int main() {
       perror("fork failed");
       return EXIT_FAILURE;
     } else if (pid == 0) {
-      exec(t);
+      
+      // exec the command
+      status = exec(t);
+      //////////
+      
     } else {
       waitpid(pid, &status, 0);
     }
