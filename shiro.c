@@ -48,7 +48,11 @@ char *get_prompt() {
   
   // buf for prompt
   char *buf = malloc(sizeof(char) * 99);
-  sprintf(buf, "[%s@%s](%s) {%d}", username, hostname, path, status);
+  if (status != 0) {
+    sprintf(buf, "[%s@\033[32m%s\033[0m](%s) \x1b[31m{%d}\x1b[0m", username, hostname, path, status);
+  } else {
+    sprintf(buf, "[%s@\033[32m%s\033[0m](%s) \x1b[34m{%d}\x1b[0m", username, hostname, path, status);
+  }
   return buf;
 }
 
