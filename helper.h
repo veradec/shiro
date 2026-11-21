@@ -78,43 +78,108 @@ tokens *split_by_whitespace(char *input) {
 
 // Commands 
 
-/* typedef struct { */
-/*   tokens** arr; */
-/*   size_t ptr; */
-/*   size_t size; */
-/* } commands; */
+typedef struct {
+  tokens** arr;
+  size_t ptr;
+  size_t size;
+} commands;
 
-/* commands *init_commands() { */
-/*   commands *c = malloc(sizeof(commands)); */
-/*   if (c == NULL) { */
-/*     return NULL; */
-/*   } */
-/*   c->size = 3; */
-/*   c->arr = malloc(sizeof(char *)*c->size); */
-/*   return c; */
-/* } */
+commands *init_commands() {
+  commands *c = malloc(sizeof(commands));
+  if (c == NULL) {
+    return NULL;
+  }
+  c->ptr=0;
+  c->size = 3;
+  c->arr = malloc(sizeof(char *)*c->size);
+  return c;
+}
 
-/* void add_command(commands* c, tokens* ts) { */
-/*   if (c->ptr >= c->size) { */
-/*     c->size = c->size * 2; */
-/*     c->arr = realloc(c->arr, sizeof(c->arr) * (c->size)); */
-/*   } */
-/*   c->arr[c->ptr] = ts; */
-/*   c->ptr = c->ptr+1; */
-/* } */
+int add_command(commands *c, tokens *ts) {
+  if (c == NULL) return 0;
+  if (c->ptr >= c->size) {
+    c->size = c->size * 2;
+    c->arr = realloc(c->arr, sizeof(c->arr) * (c->size));
+  }
+  c->arr[c->ptr] = ts;
+  c->ptr = c->ptr + 1;
+  return 1;
+}
 
-/* bool check_pipe(char *input) { */
-/*   for (size_t i = 0; i < strlen(input); i++) { */
-/*     if (input[i] == '|') { */
-/*       return true; */
-/*     } */
-/*   } */
-/*   return false; */
-/* } */
+bool check_pipe(char *input) {
+  for (size_t i = 0; i < strlen(input); i++) {
+    if (input[i] == '|') {
+      return true;
+    }
+  }
+  return false;
+}
 
-/* commands *split_line_by_pipe(char *input) { */
-/*   commands *c = init_commands(); */
-/*   /\* add_command(c, ); *\/ */
-/*   return c; */
-/* } */
-/* int run_piped_commands(commands* c, size_t ptr); */
+commands *split_by_pipe(char *input)
+{
+    if (input == NULL)
+        return NULL;
+
+    commands *c = init_commands();
+    if (c == NULL)
+        return NULL;
+
+    char *saveptr = NULL;
+    char *command = strtok_r(input, "|", &saveptr);
+
+    while (command != NULL) {
+        tokens *args = split_by_whitespace(command);
+        if (args == NULL || !add_command(c, args)) {
+            /* Free args and c here if your API requires it. */
+            return NULL;
+        }
+
+        command = strtok_r(NULL, "|", &saveptr);
+    }
+
+    return c;
+}
+
+
+int run_piped_commands(commands *c, size_t ptr) {
+  
+}
+
+
+// Alias
+
+typedef struct {
+  char **key;
+  char **value;
+  size_t ptr;
+  size_t size;
+} alias;
+
+int add_alias(alias *a, char *k, char *v) {
+  if (a == NULL) return 0;
+  if (a->ptr >= a->size) {
+    a->size = a->size * 2;
+    a->key = realloc(a->key, sizeof(a->key) * (a->size));
+    a->value = realloc(a->value, sizeof(a->value) * (a->size));
+  }
+  a->key[a->ptr] = k;
+  a->value[a->ptr] = v;
+  a->ptr = a->ptr + 1;
+  return 1;
+}
+
+alias *init_alias(void) {
+    alias *a = malloc(sizeof *a);
+    if (a == NULL) return NULL;
+
+    a->size = 3;
+    a->ptr = 0;
+    a->key = malloc(a->size * sizeof *a->key);
+    a->value = malloc(a->size * sizeof *a->value);
+    if (a->key == NULL || a->value == NULL) {
+        free(a);
+        return NULL;
+    }
+
+    return a;
+}

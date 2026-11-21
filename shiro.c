@@ -13,8 +13,17 @@ int status;
 char *username;
 char* hostname;
 tokens *PATH;
+char *last_path;
+alias *aliases;
+
+void load_alias() {
+  aliases = init_alias();
+  add_alias(aliases, "ls", "eza");
+}
+
 
 void load_info() {
+  load_alias();
   PATH = init_tokens();
   add_token(PATH, "/usr/bin");
   add_token(PATH, "/usr/sbin");
@@ -27,13 +36,15 @@ void load_info() {
   // allocating for hostname  
   hostname = malloc(sizeof(char) * 99);
   gethostname(hostname, sizeof(hostname));
+
+  last_path = malloc(sizeof(char) * 99);
 }
 
 char *get_prompt() {
   // buf for cwd
   char path[MAX_LEN];
   getcwd(path, sizeof(path));
-
+  
   // buf for prompt
   char *buf = malloc(sizeof(char) * 99);
   sprintf(buf, "[%s@%s](%s) {%d}", username, hostname, path, status);
@@ -41,7 +52,34 @@ char *get_prompt() {
 }
 
 int cd(char *dir) {
+  if (strcmp("-", dir) == 0) {
+    if (last_path == NULL || last_path[0] == '\0') {
+        return -1;
+    }
+    
+    char target[1024];
+    char current[1024];
+    
+    snprintf(target, sizeof target, "%s", last_path);
+    
+    if (getcwd(current, sizeof current) == NULL) {
+      perror("getcwd");
+        return -1;
+    }
+    
+    if (chdir(target) == -1) {
+      perror("cd");
+        return -1;
+    }
+    
+    snprintf(last_path, 1024, "%s", current);
+    return 0;
+  }
   dir = str_replace(dir, username);
+
+  getcwd(last_path, 1024);
+
+  
   int res = chdir(dir);
   if (res != 0) {
     printf("shiro: cd: %s doesn't exist\n", dir);
@@ -78,7 +116,7 @@ int exec(tokens *x) {
   }
 
   x->arr[x->ptr] = (char*) NULL;
-  return execv(app_path, x->arr);
+  return execvp(app_path, x->arr);
 }
 
 int main() {
@@ -96,13 +134,22 @@ int main() {
       return 0;
     }
     
-    // Command
+    /* Command */
 
-    /* if (check_pipe(input)) { */
-    /*    commands *c = split_line_by_pipe(input); */
-    /*    run_piped_commands(c, 0); */
-    /* } */
-    
+    if (check_pipe(input)) {
+      commands *c = split_by_pipe(input);
+      for (size_t _ = 0; _ < c->ptr; _++) {
+        tokens *t = c->arr[_];
+        printf("%zu ", _);
+        for (size_t i = 0; i < t->ptr; i++) {
+	  printf("%s", t->arr[i]);
+        }
+        printf("\n");
+      }
+      /* run_piped_commands(c, 0); */
+      continue;
+    }
+
     ////////////////////////////////
 
     
@@ -131,6 +178,14 @@ int main() {
     }
 
     
+    if (strcmp(t->arr[0], "exit") == 0) {
+      if (strcmp(t->arr[1], "exit") == 0) {
+	printf("shiro: exit built-in command\n");
+      }       
+      continue;
+    }
+
+    
 
     // START EXEC
     pid_t pid = fork();
@@ -139,10 +194,14 @@ int main() {
       perror("fork failed");
       return EXIT_FAILURE;
     } else if (pid == 0) {
-      
+
       // exec the command
-      status = exec(t);
-      status = status % 256;
+      for (size_t i = 0; i < t->ptr; i++) {
+	printf("|%s| ", t->arr[i]);
+      }
+      printf("\n");
+      /* status = exec(t); */
+      /* status = status % 256; */
       //////////
       
     } else {
