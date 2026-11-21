@@ -19,6 +19,7 @@ alias *aliases;
 void load_alias() {
   aliases = init_alias();
   add_alias(aliases, "ls", "eza");
+  add_alias(aliases, "cat", "bat");
 }
 
 
@@ -87,7 +88,20 @@ int cd(char *dir) {
   return (res);
 }
 
+char *check_alias(alias* a, char *application) {
+  for (size_t i = 0; i < a->ptr; i++) {
+    if (strcmp(application, a->key[i]) == 0) {
+      return a->value[i];
+    }
+  }
+
+  return NULL;
+}
+
 char *get_path_of_executable(char *application) {
+  if (check_alias(aliases, application) != NULL){
+    return (get_path_of_executable(check_alias(aliases, application)));
+  }
   for (size_t i = 0; i < PATH->ptr; i++) {
     char *fname = malloc(sizeof(PATH->arr[i]) + sizeof(application));
     sprintf(fname, "%s/%s", PATH->arr[i], application);
@@ -133,7 +147,6 @@ int main() {
     if (strcmp(input, "exit") == 0) {
       return 0;
     }
-    
     /* Command */
 
     if (check_pipe(input)) {
@@ -154,6 +167,7 @@ int main() {
 
     
     t = split_by_whitespace(input);
+    /* replace_alias(); */
 
     if (strcmp(t->arr[0], "cd") == 0) {
       if (t->ptr == 1) {
@@ -196,12 +210,8 @@ int main() {
     } else if (pid == 0) {
 
       // exec the command
-      for (size_t i = 0; i < t->ptr; i++) {
-	printf("|%s| ", t->arr[i]);
-      }
-      printf("\n");
-      /* status = exec(t); */
-      /* status = status % 256; */
+      status = exec(t);
+      status = status % 256;
       //////////
       
     } else {
