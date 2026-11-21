@@ -16,12 +16,13 @@ char *username;
 char* hostname;
 tokens *PATH;
 char *last_path;
+char *shiro_history_path;
 alias *aliases;
 
 void load_alias() {
   aliases = init_alias();
   add_alias(aliases, "ls", "eza");
-  add_alias(aliases, "cat", "bat");
+  /* add_alias(aliases, "cat", "bat"); */
 }
 
 
@@ -41,6 +42,12 @@ void load_info() {
   gethostname(hostname, sizeof(hostname));
 
   last_path = malloc(sizeof(char) * 99);
+
+  shiro_history_path =
+      malloc(sizeof(username) + sizeof("/home/.shiro_history"));
+
+  sprintf(shiro_history_path, "/home/%s/.shiro_history", username);
+  read_history(shiro_history_path);
 }
 
 char *get_prompt() {
@@ -139,22 +146,58 @@ int exec(tokens *x) {
   return execvp(app_path, x->arr);
 }
 
+char *read_input(const char *prompt)
+{
+    char *input = readline(prompt);
+    if (input == NULL)
+        return NULL;
+
+    size_t len = strlen(input);
+
+    while (len > 0 && input[len - 1] == '\\') {
+        input[--len] = '\0';
+
+        char *part = readline("> ");
+        if (part == NULL)
+            break;
+
+        size_t part_len = strlen(part);
+        char *grown = realloc(input, len + part_len + 1);
+        if (grown == NULL) {
+            free(input);
+            free(part);
+            return NULL;
+        }
+
+        input = grown;
+        memcpy(input + len, part, part_len + 1);
+        len += part_len;
+        free(part);
+    }
+
+    if (len > 0) {
+        add_history(input);
+        append_history(1, shiro_history_path);
+    }
+
+    return input;
+}
+
 int main() {
   char* input;
   tokens *t;
   char* prompt = get_prompt();
   load_info();
-
+  
+  
   while (1) {
     prompt = get_prompt();
-    input = readline(prompt);
-    add_history(input);
-
+    input = read_input(prompt);
     if (strcmp(input, "exit") == 0) {
       return 0;
     }
 
-    if (check_pipe(input)) {
+    if (check_for(input, "|")) {
       commands *c = split_by_pipe(input);
       for (size_t _ = 0; _ < c->ptr; _++) {
         tokens *t = c->arr[_];
@@ -168,6 +211,21 @@ int main() {
       continue;
     }
 
+    if (check_for(input), "&&") {
+      commands *c = split_by_pipe(input);
+      for (size_t _ = 0; _ < c->ptr; _++) {
+        tokens *t = c->arr[_];
+        printf("%zu ", _);
+        for (size_t i = 0; i < t->ptr; i++) {
+	  printf("%s", t->arr[i]);
+        }
+        printf("\n");
+      }
+      /* run_piped_commands(c, 0); */
+      continue;
+    }
+
+    
     ////////////////////////////////
 
     

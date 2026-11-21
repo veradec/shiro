@@ -106,7 +106,7 @@ int add_command(commands *c, tokens *ts) {
   return 1;
 }
 
-bool check_pipe(char *input) {
+bool check_for(char *input, char* search) {
   for (size_t i = 0; i < strlen(input); i++) {
     if (input[i] == '|') {
       return true;
