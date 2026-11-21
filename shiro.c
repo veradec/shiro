@@ -5,6 +5,8 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <sys/types.h>
+#include <readline/readline.h>
+#include <readline/history.h>
 #include "helper.h"
 
 #define MAX_LEN 1024
@@ -49,9 +51,9 @@ char *get_prompt() {
   // buf for prompt
   char *buf = malloc(sizeof(char) * 99);
   if (status != 0) {
-    sprintf(buf, "[%s@\033[32m%s\033[0m](%s) \x1b[31m{%d}\x1b[0m", username, hostname, path, status);
+    sprintf(buf, "[%s@\033[32m%s\033[0m](%s) \x1b[31m{%d}\x1b[0m ", username, hostname, path, status);
   } else {
-    sprintf(buf, "[%s@\033[32m%s\033[0m](%s) \x1b[34m{%d}\x1b[0m", username, hostname, path, status);
+    sprintf(buf, "[%s@\033[32m%s\033[0m](%s) \x1b[34m{%d}\x1b[0m ", username, hostname, path, status);
   }
   return buf;
 }
@@ -138,20 +140,19 @@ int exec(tokens *x) {
 }
 
 int main() {
-  char input[MAX_LEN];
+  char* input;
   tokens *t;
   char* prompt = get_prompt();
   load_info();
 
   while (1) {
     prompt = get_prompt();
-    printf("%s ", prompt);
-    fgets(input, MAX_LEN, stdin);
-    input[strlen(input)-1] = '\0';
+    input = readline(prompt);
+    add_history(input);
+
     if (strcmp(input, "exit") == 0) {
       return 0;
     }
-    /* Command */
 
     if (check_pipe(input)) {
       commands *c = split_by_pipe(input);
