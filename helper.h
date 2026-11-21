@@ -7,6 +7,7 @@
     } \
     t->ptr=0;\
 
+#define check_for(haystack, needle) strstr(haystack, needle) != NULL
 
 char *str_replace(char *str, char *username) {
   char* tmp = malloc(sizeof(str) + sizeof(username));
@@ -106,16 +107,8 @@ int add_command(commands *c, tokens *ts) {
   return 1;
 }
 
-bool check_for(char *input, char* search) {
-  for (size_t i = 0; i < strlen(input); i++) {
-    if (input[i] == '|') {
-      return true;
-    }
-  }
-  return false;
-}
 
-commands *split_by_pipe(char *input)
+commands *split_by(char *input, char* delim)
 {
     if (input == NULL)
         return NULL;
@@ -125,7 +118,7 @@ commands *split_by_pipe(char *input)
         return NULL;
 
     char *saveptr = NULL;
-    char *command = strtok_r(input, "|", &saveptr);
+    char *command = strtok_r(input, delim, &saveptr);
 
     while (command != NULL) {
         tokens *args = split_by_whitespace(command);
@@ -134,17 +127,14 @@ commands *split_by_pipe(char *input)
             return NULL;
         }
 
-        command = strtok_r(NULL, "|", &saveptr);
+        command = strtok_r(NULL, delim, &saveptr);
     }
 
     return c;
 }
 
 
-int run_piped_commands(commands *c, size_t ptr) {
-  
-}
-
+int run_piped_commands(commands *c, size_t ptr);
 
 // Alias
 

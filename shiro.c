@@ -135,7 +135,7 @@ void where(char *application) {
   }
 }
 
-int exec(tokens *x) {
+int _exec(tokens *x) {
   char *app_path = get_path_of_executable(x->arr[0]);
   if (!app_path) {
     printf("shiro: command not found: %s\n", x->arr[0]);
@@ -144,6 +144,24 @@ int exec(tokens *x) {
 
   x->arr[x->ptr] = (char*) NULL;
   return execvp(app_path, x->arr);
+}
+
+int exec(tokens *t) {
+  pid_t pid = fork();
+  
+  if (pid == -1) {
+    perror("fork failed");
+    return EXIT_FAILURE;
+    } else if (pid == 0) {
+    
+    // exec the command
+    status = _exec(t);
+    status = status % 256;
+    //////////
+    
+  } else {
+    waitpid(pid, &status, 0);
+  }
 }
 
 char *read_input(const char *prompt)
@@ -198,7 +216,7 @@ int main() {
     }
 
     if (check_for(input, "|")) {
-      commands *c = split_by_pipe(input);
+      commands *c = split_by(input, "|");
       for (size_t _ = 0; _ < c->ptr; _++) {
         tokens *t = c->arr[_];
         printf("%zu ", _);
@@ -211,17 +229,11 @@ int main() {
       continue;
     }
 
-    if (check_for(input), "&&") {
-      commands *c = split_by_pipe(input);
-      for (size_t _ = 0; _ < c->ptr; _++) {
-        tokens *t = c->arr[_];
-        printf("%zu ", _);
-        for (size_t i = 0; i < t->ptr; i++) {
-	  printf("%s", t->arr[i]);
-        }
-        printf("\n");
+    if (check_for(input, "&&")) {
+      commands *c = split_by(input, "&&");
+      for (size_t i = 0; i < c->ptr; i++) {
+	exec(c->arr[i]);
       }
-      /* run_piped_commands(c, 0); */
       continue;
     }
 
@@ -230,8 +242,6 @@ int main() {
 
     
     t = split_by_whitespace(input);
-    /* replace_alias(); */
-
     if (strcmp(t->arr[0], "cd") == 0) {
       if (t->ptr == 1) {
         char *tmp = malloc(sizeof(username) + sizeof("/home/"));
@@ -261,25 +271,7 @@ int main() {
       }       
       continue;
     }
-
-    
-
-    // START EXEC
-    pid_t pid = fork();
-    
-    if (pid == -1) {
-      perror("fork failed");
-      return EXIT_FAILURE;
-    } else if (pid == 0) {
-
-      // exec the command
-      status = exec(t);
-      status = status % 256;
-      //////////
-      
-    } else {
-      waitpid(pid, &status, 0);
-    }
+    exec(t);
     reset_arr(t);
   }
 }
