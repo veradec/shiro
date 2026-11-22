@@ -7,60 +7,85 @@
 #include <sys/types.h>
 #include <readline/readline.h>
 #include <readline/history.h>
+#include <signal.h>
 #include "helper.h"
 
 #define MAX_LEN 1024
 
+// Global Variables
+alias *aliases;
 int status;
 char *username;
 char* hostname;
 tokens *PATH;
 char *last_path;
 char *shiro_history_path;
-alias *aliases;
+char* home_dir;
+int pid_counter = 0;
+int pid_process_number = 0;
+
+static volatile sig_atomic_t interrupted = 0;
+
+static void on_sigint(int signo)
+{
+    (void)signo;
+    interrupted = 1;   /* Keep signal handlers minimal */
+}
 
 void load_alias() {
   aliases = init_alias();
   add_alias(aliases, "ls", "eza");
-  /* add_alias(aliases, "cat", "bat"); */
+  add_alias(aliases, "..", "cd ../");
+  add_alias(aliases, "...", "cd ../../");
+  add_alias(aliases, "....", "cd ../../../");
 }
 
 
 void load_info() {
   load_alias();
+
   PATH = init_tokens();
   add_token(PATH, "/usr/bin");
   add_token(PATH, "/usr/sbin");
   add_token(PATH, "/usr/local/bin");
-
+  
   // allocating for username  
   username = malloc(sizeof(char) * 99);
   getlogin_r(username, sizeof(username));
+
+
+  // allocating for home_dir
+  home_dir = malloc(sizeof(username) + sizeof("/home/"));
+  sprintf(home_dir, "/home/%s", username);
   
   // allocating for hostname  
   hostname = malloc(sizeof(char) * 99);
   gethostname(hostname, sizeof(hostname));
 
+  // allocating for last_path
   last_path = malloc(sizeof(char) * 99);
 
+  // allocating for shiro_history_path
   shiro_history_path =
       malloc(sizeof(username) + sizeof("/home/.shiro_history"));
 
   sprintf(shiro_history_path, "/home/%s/.shiro_history", username);
   read_history(shiro_history_path);
+
+  rl_bind_key('\t', rl_complete);
 }
 
 char *get_prompt() {
   // buf for cwd
   char path[MAX_LEN];
   getcwd(path, sizeof(path));
-  
+  ;
   // buf for prompt
   char *buf = malloc(sizeof(char) * 99);
   if (status != 0) {
-    sprintf(buf, "[%s@\033[32m%s\033[0m](%s) \x1b[31m{%d}\x1b[0m ", username, hostname, path, status);
+    sprintf(buf, "[%s@\033[32m%s\033[0m](%s) \x1b[31m{%d}\x1b[0m ", username, hostname, str_replace(path, home_dir, "~"), status);
   } else {
-    sprintf(buf, "[%s@\033[32m%s\033[0m](%s) \x1b[34m{%d}\x1b[0m ", username, hostname, path, status);
+    sprintf(buf, "[%s@\033[32m%s\033[0m](%s) \x1b[34m{%d}\x1b[0m ", username, hostname, str_replace(path, home_dir, "~"), status);
   }
   return buf;
 }
@@ -89,7 +114,8 @@ int cd(char *dir) {
     snprintf(last_path, 1024, "%s", current);
     return 0;
   }
-  dir = str_replace(dir, username);
+
+  dir = str_replace(dir, "~", home_dir);
 
   getcwd(last_path, 1024);
 
@@ -111,9 +137,21 @@ char *check_alias(alias* a, char *application) {
   return NULL;
 }
 
+void where(char *application) {
+  for (size_t i = 0; i < PATH->ptr; i++) {
+    char *fname = malloc(sizeof(PATH->arr[i])  + sizeof(application));
+    sprintf(fname, "%s/%s", PATH->arr[i], application);
+    if (access(fname, F_OK) == 0) {
+      printf("%s\n", fname);
+    }
+  }
+}
+
+//// EXEC
+
 char *get_path_of_executable(char *application) {
-  if (check_alias(aliases, application) != NULL){
-    return (get_path_of_executable(check_alias(aliases, application)));
+  if (check_alias(aliases, application) != NULL) {
+    return check_alias(aliases, application);
   }
   for (size_t i = 0; i < PATH->ptr; i++) {
     char *fname = malloc(sizeof(PATH->arr[i]) + sizeof(application));
@@ -123,16 +161,6 @@ char *get_path_of_executable(char *application) {
     }
   }
   return NULL;
-}
-
-void where(char *application) {
-  for (size_t i = 0; i < PATH->ptr; i++) {
-    char *fname = malloc(sizeof(PATH->arr[i])  + sizeof(application));
-    sprintf(fname, "%s/%s", PATH->arr[i], application);
-    if (access(fname, F_OK) == 0) {
-      printf("%s\n", fname);
-    }
-  }
 }
 
 int _exec(tokens *x) {
@@ -147,58 +175,69 @@ int _exec(tokens *x) {
 }
 
 int exec(tokens *t) {
+  bool run_async = false;
+  if (strcmp(t->arr[t->ptr - 1], "&") == 0) {
+    run_async = true;
+  }
   pid_t pid = fork();
-  
   if (pid == -1) {
-    perror("fork failed");
-    return EXIT_FAILURE;
-    } else if (pid == 0) {
+      perror("fork failed");
+      return EXIT_FAILURE;
+  } else if (pid == 0) {
     
     // exec the command
     status = _exec(t);
     status = status % 256;
     //////////
+    printf("[%d] + %d done \t", pid_counter, pid_process_number);
     
   } else {
     waitpid(pid, &status, 0);
   }
 }
 
+
+/////////
+
+
+
 char *read_input(const char *prompt)
 {
-    char *input = readline(prompt);
-    if (input == NULL)
-        return NULL;
+  char *input = readline(prompt);
+  
+  if (input == NULL)
+    return NULL;
+  
+  
+  size_t len = strlen(input);
 
-    size_t len = strlen(input);
-
-    while (len > 0 && input[len - 1] == '\\') {
-        input[--len] = '\0';
-
-        char *part = readline("> ");
-        if (part == NULL)
-            break;
-
-        size_t part_len = strlen(part);
-        char *grown = realloc(input, len + part_len + 1);
-        if (grown == NULL) {
-            free(input);
-            free(part);
-            return NULL;
-        }
-
-        input = grown;
-        memcpy(input + len, part, part_len + 1);
-        len += part_len;
-        free(part);
+  while (len > 0 && input[len - 1] == '\\') {
+    input[--len] = '\0';
+    
+    char *part = readline("> ");
+    if (part == NULL)
+      break;
+    
+    size_t part_len = strlen(part);
+    char *grown = realloc(input, len + part_len + 1);
+    if (grown == NULL) {
+      free(input);
+      free(part);
+      return NULL;
     }
-
-    if (len > 0) {
-        add_history(input);
-        append_history(1, shiro_history_path);
-    }
-
-    return input;
+    
+    input = grown;
+    memcpy(input + len, part, part_len + 1);
+    len += part_len;
+    free(part);
+  }
+  
+  if (len > 0) {
+    add_history(input);
+    append_history(1, shiro_history_path);
+  }
+  
+  return input;
 }
 
 int main() {
@@ -206,11 +245,29 @@ int main() {
   tokens *t;
   char* prompt = get_prompt();
   load_info();
-  
-  
+
+  rl_getc_function = getc;
+
+  struct sigaction sa = {0};
+  sa.sa_handler = on_sigint;
+  sigemptyset(&sa.sa_mask);
+  sigaction(SIGINT, &sa, NULL);
+
   while (1) {
+    interrupted = 0;
     prompt = get_prompt();
     input = read_input(prompt);
+    if (interrupted) {
+      continue;
+    }
+    if (!input) {
+      exit(-1);
+    }
+
+    if (strlen(input) == 0) {
+      continue;
+    }
+    
     if (strcmp(input, "exit") == 0) {
       return 0;
     }
