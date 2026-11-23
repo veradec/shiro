@@ -21,6 +21,7 @@ char* hostname;
 tokens *PATH;
 char *last_path;
 char *shiro_history_path;
+char *shiro_config_path;
 char* home_dir;
 int pid_counter = 0;
 int pid_process_number = 0;
@@ -35,15 +36,45 @@ static void on_sigint(int signo)
 
 void load_alias() {
   aliases = init_alias();
-  add_alias(aliases, "ls", "eza -1");
-  add_alias(aliases, "cat", "bat");
-  add_alias(aliases, "..", "cd ../");
-  add_alias(aliases, "...", "cd ../../");
-  add_alias(aliases, "....", "cd ../../../");
+  shiro_config_path = malloc(sizeof("/.shirorc") + sizeof(home_dir));
+  sprintf(shiro_config_path, "%s/.shirorc", home_dir);
+  char buf[MAX_LEN] = "";
+  char str[MAX_LEN] = "";
+  char* tmp;
+  FILE *rc = fopen(shiro_config_path, "r");
+  if (!rc) {
+    printf("%s", shiro_config_path);
+    /* perror("couldnt read file"); */
+    exit(1);
+  }
+  while (fgets(str, MAX_LEN, rc) != NULL) {
+    if (starts_with(str, "alias")) {
+      tmp = str + 6;
+      tmp[strlen(tmp)-1] = '\0';
+
+      char* key = strtok(tmp, "=");
+      char *value = strtok(NULL, "=");
+      if (value[0] == '"') {
+        value = value + 1;
+        value[strlen(value)-1] = '\0';
+      }
+
+      add_alias(aliases, strdup(key), strdup(value));
+      continue;
+    }
+
+    if (starts_with(str, "export")) {
+      tmp = tmp + 7;
+      tmp[strlen(tmp)-1] = '\0';
+      printf("TODO: Set Env - %s", str);
+      continue;
+    }
+  }
+
 }
 
 void load_info() {
-  load_alias();
+
 
   PATH = init_tokens();
   add_token(PATH, "/usr/bin");
@@ -72,6 +103,7 @@ void load_info() {
   read_history(shiro_history_path);
 
   rl_bind_key('\t', rl_complete);
+  load_alias();
 }
 
 char *get_prompt() {
@@ -137,7 +169,6 @@ void where(char *application) {
 }
 
 //// EXEC
-
 char *get_path_of_executable(char *application) {
   for (size_t i = 0; i < PATH->ptr; i++) {
     char *fname = malloc(sizeof(PATH->arr[i]) + sizeof(alias));
@@ -182,7 +213,6 @@ tokens* change_alias(tokens *t) {
   
   return a;
 }
-
 
 int _exec(tokens *t) {
 
@@ -264,7 +294,7 @@ int main() {
   tokens *t;
   char* prompt = get_prompt();
   load_info();
-
+  
   rl_getc_function = getc;
 
   struct sigaction sa = {0};

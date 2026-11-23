@@ -15,6 +15,13 @@
 
 #define check_for(haystack, needle) strstr(haystack, needle) != NULL
 
+#define starts_with(a, b) strncmp(a, b, strlen(b)) == 0
+
+bool StartsWith(const char *a, const char *b)
+{
+   if(strncmp(a, b, strlen(b)) == 0) return 1;
+   return 0;
+}
 
 // struct def
 typedef struct {
