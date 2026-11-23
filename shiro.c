@@ -38,13 +38,11 @@ void load_alias() {
   aliases = init_alias();
   shiro_config_path = malloc(sizeof("/.shirorc") + sizeof(home_dir));
   sprintf(shiro_config_path, "%s/.shirorc", home_dir);
-  char buf[MAX_LEN] = "";
   char str[MAX_LEN] = "";
   char* tmp;
   FILE *rc = fopen(shiro_config_path, "r");
   if (!rc) {
-    printf("%s", shiro_config_path);
-    /* perror("couldnt read file"); */
+    perror("couldnt read file");
     exit(1);
   }
   while (fgets(str, MAX_LEN, rc) != NULL) {
@@ -70,11 +68,9 @@ void load_alias() {
       continue;
     }
   }
-
 }
 
 void load_info() {
-
 
   PATH = init_tokens();
   add_token(PATH, "/usr/bin");
@@ -88,6 +84,7 @@ void load_info() {
   // allocating for home_dir
   home_dir = malloc(sizeof(username) + sizeof("/home/"));
   sprintf(home_dir, "/home/%s", username);
+
   // allocating for hostname  
   hostname = malloc(sizeof(char) * 99);
   gethostname(hostname, sizeof(hostname));
@@ -98,11 +95,11 @@ void load_info() {
   // allocating for shiro_history_path
   shiro_history_path =
       malloc(sizeof(username) + sizeof("/home/.shiro_history"));
-
   sprintf(shiro_history_path, "/home/%s/.shiro_history", username);
   read_history(shiro_history_path);
 
   rl_bind_key('\t', rl_complete);
+
   load_alias();
 }
 
@@ -168,7 +165,6 @@ void where(char *application) {
   }
 }
 
-//// EXEC
 char *get_path_of_executable(char *application) {
   for (size_t i = 0; i < PATH->ptr; i++) {
     char *fname = malloc(sizeof(PATH->arr[i]) + sizeof(alias));
@@ -220,6 +216,35 @@ int _exec(tokens *t) {
   t = change_alias(t);
   ///////////////////
 
+  
+  if (strcmp(t->arr[0], "where") == 0) {
+    if (strcmp(t->arr[1], "where") == 0) {
+      printf("shiro: where built-in command\n");
+    } else {
+      where(t->arr[1]);
+    }
+    exit(0);
+  }
+
+  if (strcmp(t->arr[0], "cd") == 0) {
+    if (t->ptr == 1) {
+      char *tmp = malloc(sizeof(username) + sizeof("/home/"));
+      sprintf(tmp, "/home/%s", username);
+      cd(tmp);
+      } else {
+      cd(t->arr[1]);
+    }
+  }
+  
+  
+  if (strcmp(t->arr[0], "exit") == 0) {
+    if (strcmp(t->arr[1], "exit") == 0) {
+      printf("shiro: exit built-in command\n");
+    }       
+  }
+  
+  
+  
   char *app_path = get_path_of_executable(t->arr[0]);
   if (!app_path) {
     return -1;
@@ -244,11 +269,6 @@ int exec(tokens *t) {
     waitpid(pid, &status, 0);
   }
 }
-
-
-/////////
-
-
 
 char *read_input(const char *prompt)
 {
@@ -337,40 +357,7 @@ int main() {
       continue;
     }
 
-    
-    ////////////////////////////////
-
-    
     t = split_by_whitespace(input);
-    if (strcmp(t->arr[0], "cd") == 0) {
-      if (t->ptr == 1) {
-        char *tmp = malloc(sizeof(username) + sizeof("/home/"));
-        sprintf(tmp, "/home/%s", username);
-        cd(tmp);
-      } else {
-	cd(t->arr[1]);
-      }
-      continue;
-    }
-
-
-    if (strcmp(t->arr[0], "where") == 0) {
-      if (strcmp(t->arr[1], "where") == 0) {
-	printf("shiro: where built-in command\n");
-      } else {
-	where(t->arr[1]);
-      }
-
-      continue;
-    }
-
-    
-    if (strcmp(t->arr[0], "exit") == 0) {
-      if (strcmp(t->arr[1], "exit") == 0) {
-	printf("shiro: exit built-in command\n");
-      }       
-      continue;
-    }
     exec(t);
     reset_arr(t);
   }
