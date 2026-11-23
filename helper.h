@@ -2,6 +2,19 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
+#define print_tokens(t)                                                        \
+  for (size_t i = 0; i < t->ptr; i++) {                                        \
+    printf("%zu - %s | ", i, t->arr[i]);				       \
+  }                                                                            \
+  printf("\n");                                                                \
+
+#define reset_arr(t)  for (size_t i = 0; i < t->ptr; i++) { \
+      t->arr[i] = NULL; \
+    } \
+    t->ptr=0;\
+
+#define check_for(haystack, needle) strstr(haystack, needle) != NULL
+
 
 // struct def
 typedef struct {
@@ -25,13 +38,6 @@ typedef struct {
 
 // method def
 int _exec(tokens *x);
-
-#define reset_arr(t)  for (size_t i = 0; i < t->ptr; i++) { \
-      t->arr[i] = NULL; \
-    } \
-    t->ptr=0;\
-
-#define check_for(haystack, needle) strstr(haystack, needle) != NULL
 
 char *str_replace(char *orig, char *rep, char *with) {
     char *result; // the return string

@@ -35,12 +35,12 @@ static void on_sigint(int signo)
 
 void load_alias() {
   aliases = init_alias();
-  add_alias(aliases, "ls", "eza");
+  add_alias(aliases, "ls", "eza -1");
+  add_alias(aliases, "cat", "bat");
   add_alias(aliases, "..", "cd ../");
   add_alias(aliases, "...", "cd ../../");
   add_alias(aliases, "....", "cd ../../../");
 }
-
 
 void load_info() {
   load_alias();
@@ -53,7 +53,6 @@ void load_info() {
   // allocating for username  
   username = malloc(sizeof(char) * 99);
   getlogin_r(username, sizeof(username));
-
 
   // allocating for home_dir
   home_dir = malloc(sizeof(username) + sizeof("/home/"));
@@ -127,16 +126,6 @@ int cd(char *dir) {
   return (res);
 }
 
-char *check_alias(alias* a, char *application) {
-  for (size_t i = 0; i < a->ptr; i++) {
-    if (strcmp(application, a->key[i]) == 0) {
-      return a->value[i];
-    }
-  }
-
-  return NULL;
-}
-
 void where(char *application) {
   for (size_t i = 0; i < PATH->ptr; i++) {
     char *fname = malloc(sizeof(PATH->arr[i])  + sizeof(application));
@@ -150,35 +139,67 @@ void where(char *application) {
 //// EXEC
 
 char *get_path_of_executable(char *application) {
-  if (check_alias(aliases, application) != NULL) {
-    return check_alias(aliases, application);
-  }
   for (size_t i = 0; i < PATH->ptr; i++) {
-    char *fname = malloc(sizeof(PATH->arr[i]) + sizeof(application));
+    char *fname = malloc(sizeof(PATH->arr[i]) + sizeof(alias));
     sprintf(fname, "%s/%s", PATH->arr[i], application);
     if (access(fname, F_OK) == 0) {
       return fname;
     }
   }
+  printf("shiro: command not found: %s\n", application);
   return NULL;
 }
 
-int _exec(tokens *x) {
-  char *app_path = get_path_of_executable(x->arr[0]);
+tokens* change_alias(tokens *t) {
+  if (t == NULL || t->ptr == 0) {
+    return t;
+  }
+  char *alias_val = NULL;
+  for (size_t i = 0; i < aliases->ptr; i++) {
+    if (strcmp(t->arr[0], aliases->key[i]) == 0) {
+      alias_val = aliases->value[i];
+      break;
+    }
+  }
+  if (alias_val == NULL) {
+    return t;
+  }
+
+  char *f = strdup(alias_val);
+  if (f == NULL) {
+    return t;
+  }
+
+  tokens* a = split_by_whitespace(f);
+  if (a == NULL) {
+    free(f);
+    return t;
+  }
+
+  for (size_t i = 1; i < t->ptr; i++) {
+    add_token(a, t->arr[i]);
+  } 
+  
+  return a;
+}
+
+
+int _exec(tokens *t) {
+
+  /// ALIAS TO TOKENS
+  t = change_alias(t);
+  ///////////////////
+
+  char *app_path = get_path_of_executable(t->arr[0]);
   if (!app_path) {
-    printf("shiro: command not found: %s\n", x->arr[0]);
     return -1;
   }
 
-  x->arr[x->ptr] = (char*) NULL;
-  return execvp(app_path, x->arr);
+  t->arr[t->ptr] = (char*) NULL;
+  return execvp(app_path, t->arr);
 }
 
 int exec(tokens *t) {
-  bool run_async = false;
-  if (strcmp(t->arr[t->ptr - 1], "&") == 0) {
-    run_async = true;
-  }
   pid_t pid = fork();
   if (pid == -1) {
       perror("fork failed");
@@ -189,8 +210,6 @@ int exec(tokens *t) {
     status = _exec(t);
     status = status % 256;
     //////////
-    printf("[%d] + %d done \t", pid_counter, pid_process_number);
-    
   } else {
     waitpid(pid, &status, 0);
   }
