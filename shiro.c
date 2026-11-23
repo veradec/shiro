@@ -8,6 +8,7 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 #include <signal.h>
+#include <errno.h>
 #include "helper.h"
 
 #define MAX_LEN 1024
@@ -57,7 +58,6 @@ void load_info() {
   // allocating for home_dir
   home_dir = malloc(sizeof(username) + sizeof("/home/"));
   sprintf(home_dir, "/home/%s", username);
-  
   // allocating for hostname  
   hostname = malloc(sizeof(char) * 99);
   gethostname(hostname, sizeof(hostname));
@@ -267,6 +267,8 @@ int main() {
     if (strlen(input) == 0) {
       continue;
     }
+
+    input = str_replace(input, "~", home_dir);
     
     if (strcmp(input, "exit") == 0) {
       return 0;
@@ -274,15 +276,7 @@ int main() {
 
     if (check_for(input, "|")) {
       commands *c = split_by(input, "|");
-      for (size_t _ = 0; _ < c->ptr; _++) {
-        tokens *t = c->arr[_];
-        printf("%zu ", _);
-        for (size_t i = 0; i < t->ptr; i++) {
-	  printf("%s", t->arr[i]);
-        }
-        printf("\n");
-      }
-      /* run_piped_commands(c, 0); */
+      run_piped_commands(c);
       continue;
     }
 

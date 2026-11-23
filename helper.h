@@ -23,6 +23,9 @@ typedef struct {
   size_t size;
 } alias;
 
+// method def
+int _exec(tokens *x);
+
 #define reset_arr(t)  for (size_t i = 0; i < t->ptr; i++) { \
       t->arr[i] = NULL; \
     } \
@@ -181,8 +184,78 @@ commands *split_by(char *input, char* delim)
 }
 
 
-int run_piped_commands(commands *c, size_t ptr);
+int run_piped_commands(commands *c) {
+    int prev_read = -1;
 
+    for (size_t i = 0; i < c->ptr; i++) {
+        int next_pipe[2] = {-1, -1};
+
+        if (i + 1 < c->ptr && pipe(next_pipe) == -1) {
+            perror("pipe");
+            if (prev_read != -1)
+                close(prev_read);
+            return 1;
+        }
+
+        pid_t pid = fork();
+        if (pid == -1) {
+            perror("fork");
+            if (prev_read != -1)
+                close(prev_read);
+            if (next_pipe[0] != -1)
+                close(next_pipe[0]);
+            if (next_pipe[1] != -1)
+                close(next_pipe[1]);
+            return 1;
+        }
+
+        if (pid == 0) {
+            if (prev_read != -1 &&
+                dup2(prev_read, STDIN_FILENO) == -1) {
+                perror("dup2 stdin");
+                _exit(1);
+            }
+
+            if (next_pipe[1] != -1 &&
+                dup2(next_pipe[1], STDOUT_FILENO) == -1) {
+                perror("dup2 stdout");
+                _exit(1);
+            }
+
+            if (prev_read != -1)
+                close(prev_read);
+            if (next_pipe[0] != -1)
+                close(next_pipe[0]);
+            if (next_pipe[1] != -1)
+                close(next_pipe[1]);
+
+            _exec(c->arr[i]);
+            perror("exec");
+            _exit(127);
+        }
+
+        if (prev_read != -1)
+            close(prev_read);
+        if (next_pipe[1] != -1)
+            close(next_pipe[1]);
+
+        prev_read = next_pipe[0];
+    }
+
+    if (prev_read != -1)
+        close(prev_read);
+
+    for (size_t i = 0; i < c->ptr; i++) {
+        while (wait(NULL) == -1) {
+            if (errno == EINTR)
+                continue;
+            perror("wait");
+            return 1;
+        }
+    }
+
+    return 0;
+}
 // Alias
 
 int add_alias(alias *a, char *k, char *v) {

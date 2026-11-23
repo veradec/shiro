@@ -36,6 +36,7 @@ Run the Shell
 
  - [BigBoxSWE](https://www.youtube.com/@bigboxSWE) for inspiring me to do it <3
  - [Stephen Brennan](https://brennan.io/2015/01/16/write-a-shell-in-c/) for helping me start out
+ - [Sys Calls - Wikipedia](https://en.wikipedia.org/wiki/System_call)
 
 
 ## FAQ
