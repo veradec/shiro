@@ -34,7 +34,7 @@ static void on_sigint(int signo)
     interrupted = 1;   /* Keep signal handlers minimal */
 }
 
-void load_alias() {
+void load_config() {
   aliases = init_alias();
   shiro_config_path = malloc(sizeof("/.shirorc") + sizeof(home_dir));
   sprintf(shiro_config_path, "%s/.shirorc", home_dir);
@@ -46,6 +46,8 @@ void load_alias() {
     exit(1);
   }
   while (fgets(str, MAX_LEN, rc) != NULL) {
+    tmp = str;
+    // Parse Through Alias
     if (starts_with(str, "alias")) {
       tmp = str + 6;
       tmp[strlen(tmp)-1] = '\0';
@@ -61,12 +63,27 @@ void load_alias() {
       continue;
     }
 
+    // Parse Through Env variables
     if (starts_with(str, "export")) {
       tmp = tmp + 7;
       tmp[strlen(tmp)-1] = '\0';
       printf("TODO: Set Env - %s", str);
       continue;
     }
+
+
+    // evaluate (run) statements
+    if (starts_with(str, "eval")) {
+      tmp = tmp + 5;
+      tmp[strlen(tmp) - 1] = '\0';
+    }
+
+    // base case just run the command
+    tokens *t = split_by_whitespace(tmp);
+    /* print_tokens(t); */
+    exec(t);
+
+    
   }
 }
 
@@ -100,7 +117,7 @@ void load_info() {
 
   rl_bind_key('\t', rl_complete);
 
-  load_alias();
+  load_config();
 }
 
 char *get_prompt() {
@@ -240,7 +257,15 @@ int _exec(tokens *t) {
   if (strcmp(t->arr[0], "exit") == 0) {
     if (strcmp(t->arr[1], "exit") == 0) {
       printf("shiro: exit built-in command\n");
-    }       
+    }
+  }
+
+  if (strcmp(t->arr[0], "eval") == 0) {
+    for (size_t i = 0; i < t->ptr; i++) {
+      t->arr[i] = t->arr[i + 1];
+    }
+    /* print_tokens(t); */
+    (_exec(t));
   }
   
   

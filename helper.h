@@ -45,6 +45,7 @@ typedef struct {
 
 // method def
 int _exec(tokens *x);
+int exec(tokens *x);
 
 char *str_replace(char *orig, char *rep, char *with) {
     char *result; // the return string
