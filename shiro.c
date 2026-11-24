@@ -25,7 +25,7 @@ char *shiro_config_path;
 char* home_dir;
 int pid_counter = 0;
 int pid_process_number = 0;
-
+tokens* env;
 static volatile sig_atomic_t interrupted = 0;
 
 static void on_sigint(int signo)
@@ -66,11 +66,10 @@ void load_config() {
     // Parse Through Env variables
     if (starts_with(str, "export")) {
       tmp = tmp + 7;
-      tmp[strlen(tmp)-1] = '\0';
-      printf("TODO: Set Env - %s", str);
+      tmp[strlen(tmp) - 1] = '\0';
+      /* add_token(env, tmp); */
       continue;
     }
-
 
     // evaluate (run) statements
     if (starts_with(str, "eval")) {
@@ -102,6 +101,9 @@ void load_info() {
   home_dir = malloc(sizeof(username) + sizeof("/home/"));
   sprintf(home_dir, "/home/%s", username);
 
+  // env tokens
+  env = init_tokens();
+  
   // allocating for hostname  
   hostname = malloc(sizeof(char) * 99);
   gethostname(hostname, sizeof(hostname));
@@ -227,13 +229,41 @@ tokens* change_alias(tokens *t) {
   return a;
 }
 
+char *replace_env_vars(char *input) {
+  char *e; int index;
+  for (size_t i = 0; i < env->ptr; i++) {
+    char* current_env = env->arr[i];
+    e = strchr(current_env, '=');
+    index = (int)(e - current_env);
+    char ss[index+1];
+    char val[(sizeof(input) - index)+1];
+    strncpy(ss, current_env, index);
+    strncpy(val, current_env+index+1, sizeof(input));
+    ss[index] = '\0';
+    val[sizeof(input)] = '\0';
+
+    memmove(ss + 1, ss, strlen(ss) + 1);
+    ss[0] = '$';
+    
+    if (check_for(input, ss)) {
+      input = str_replace(input, ss, val);
+    }
+  }
+
+  if (check_for(input, "$?")) {
+    char status_str[4];
+    snprintf(status_str, sizeof(status_str), "%d", status);
+    input = str_replace(input, "$?", status_str);
+  }
+  return input;
+}
+
 int _exec(tokens *t) {
 
   /// ALIAS TO TOKENS
   t = change_alias(t);
   ///////////////////
 
-  
   if (strcmp(t->arr[0], "where") == 0) {
     if (strcmp(t->arr[1], "where") == 0) {
       printf("shiro: where built-in command\n");
@@ -260,6 +290,12 @@ int _exec(tokens *t) {
     }
   }
 
+  if (strcmp(t->arr[0], "export") == 0) {
+    printf("%s", t->arr[1]);
+    return 0;
+  }
+  
+
   if (strcmp(t->arr[0], "eval") == 0) {
     for (size_t i = 0; i < t->ptr; i++) {
       t->arr[i] = t->arr[i + 1];
@@ -275,7 +311,7 @@ int _exec(tokens *t) {
     return -1;
   }
 
-  t->arr[t->ptr] = (char*) NULL;
+  t->arr[t->ptr] = (char *)NULL;
   return execvp(app_path, t->arr);
 }
 
@@ -347,6 +383,9 @@ int main() {
   sigemptyset(&sa.sa_mask);
   sigaction(SIGINT, &sa, NULL);
 
+  add_token(env, "PERCENT=%");
+  add_token(env, "PORT=2222");
+  /* printf("%s",  replace_env_vars("echo \"Active Port - $PORT\" ")); */
   while (1) {
     interrupted = 0;
     prompt = get_prompt();
@@ -363,7 +402,7 @@ int main() {
     }
 
     input = str_replace(input, "~", home_dir);
-    
+    input = replace_env_vars(input);
     if (strcmp(input, "exit") == 0) {
       return 0;
     }
